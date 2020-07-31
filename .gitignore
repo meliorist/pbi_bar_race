@@ -1,0 +1,5 @@
+﻿*.bak
+/.tmp
+/.vs
+/.vscode
+/node_modules

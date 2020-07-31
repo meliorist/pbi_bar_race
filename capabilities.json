@@ -1,0 +1,105 @@
+{
+  "dataRoles": [
+    {
+      "displayName": "Unique ID",
+      "name": "column",
+      "kind": "GroupingOrMeasure"
+    },
+    {
+      "displayName": "Values",
+      "name": "value",
+      "kind": "GroupingOrMeasure"
+    }
+  ],
+  "objects": {
+    "mainOptions": {
+      "displayName": "Visual Options",
+      "properties": {
+        "barLabelColor": {
+          "displayName": "Bar Label Color",
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "textColor": {
+          "displayName": "Text color",
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "fontFamily": {
+          "displayName": "Font Family",
+          "type": {
+            "formatting": {
+              "fontFamily": true
+            }
+          }
+        },
+        "yearSize": {
+          "displayName": "Year Label Size",
+          "type": {
+            "numeric": true
+          }
+        },
+        "monthSize": {
+          "displayName": "Month Label Size",
+          "type": {
+            "numeric": true
+          }
+        },
+        "barsToShow": {
+          "displayName": "Top N Rank",
+          "type": {
+            "numeric": true
+          }
+        },
+        "intervalTiming": {
+          "displayName": "Interval (seconds)",
+          "type": {
+            "numeric": true
+          }
+        },
+        "valueFormat": {
+          "displayName": "Value Format",
+          "type": {
+            "text": true
+          }
+        }
+      }
+    }
+  },
+  "dataViewMappings": [
+    {
+      "table": {
+        "rows": {
+          "select": [
+            {
+              "for": {
+                "in": "column"
+              },
+              "dataReductionAlgorithm": {
+                "window": {"count": 6000}
+              }
+            },
+            {
+              "for": {
+                "in": "value"
+              },
+              "dataReductionAlgorithm": {
+                "window": { "count": 6000 }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
