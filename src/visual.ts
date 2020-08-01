@@ -68,6 +68,7 @@ export class Visual implements IVisual {
     public update(options: VisualUpdateOptions) {
         this.settings = Visual.parseSettings(options && options.dataViews && options.dataViews[0]);
 
+        // allows us to use the colors from the selected template
         let colorPalette: ISandboxExtendedColorPalette = this.host.colorPalette;
 
         if (options.operationKind === VisualDataChangeOperationKind.Create) {
@@ -80,7 +81,7 @@ export class Visual implements IVisual {
         let rowCount = options.dataViews[0].table.rows.length;
 
         if (options.dataViews[0].metadata.segment) {
-          let canFetchMore = this.host.fetchMoreData();
+            let canFetchMore = this.host.fetchMoreData();
             if (!canFetchMore) {
               //console.log('Memory limit hit after ${this.windowsLoaded} fetches. We managed to get ${rowCount} rows.');
             }
@@ -91,7 +92,6 @@ export class Visual implements IVisual {
         let height = options.viewport.height;
         let width = options.viewport.width;
 
-        // Feel free to change or delete any of the code you see in this editor!
         var svg = d3.select(this.container).append("svg")
             .attr("width", width)
             .attr("height", height);
@@ -109,28 +109,30 @@ export class Visual implements IVisual {
 
         let barPadding = (height - (margin.bottom + margin.top)) / (top_n * 5);
 
-        let year_str: String = "";
-
         interface BarPoint {
             name: string,
             value: number,
             year: number,
             lastValue: number,
-            rank: number,
-            colour: string
+            colour: string,
+            year_label: string,
+            month_label: string
         };
-
-        let months_array = { 1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June', 7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'November', 12: 'December' };
 
         let data_view = options.dataViews[0].table;
 
+        // save the valueFormat and showControls options to a variable so it can be used within functions
+        let valueFormat: string = this.settings.mainOptions.valueFormat;
+        let showControls: boolean = this.settings.mainOptions.showControls;
+
         let role_map = [];
         for (let dv = 0; dv < data_view.columns.length; dv++) {
-            if (data_view.columns[dv].displayName == 'name') role_map['name'] = dv;
-            if (data_view.columns[dv].displayName == 'cancelPercent') role_map['value'] = dv;
-            if (data_view.columns[dv].displayName == 'prior_month') role_map['lastValue'] = dv;
-            if (data_view.columns[dv].displayName == 'rank') role_map['rank'] = dv;
-            if (data_view.columns[dv].displayName == 'year') role_map['year'] = dv;
+            if (data_view.columns[dv].roles.labels == true) role_map['name'] = dv;
+            if (data_view.columns[dv].roles.current_values == true) role_map['value'] = dv;
+            if (data_view.columns[dv].roles.prior_values == true) role_map['lastValue'] = dv;
+            if (data_view.columns[dv].roles.period_values == true) role_map['year'] = dv;
+            if (data_view.columns[dv].roles.period_labels == true) role_map['year_label'] = dv;
+            if (data_view.columns[dv].roles.period_sub_labels == true) role_map['month_label'] = dv;
         }
 
         let data = [];
@@ -140,18 +142,18 @@ export class Visual implements IVisual {
               value: data_view.rows[dv][role_map['value']] as number,
               year: data_view.rows[dv][role_map['year']] as number,
               lastValue: data_view.rows[dv][role_map['lastValue']] as number,
-              rank: data_view.rows[dv][role_map['rank']] as number,
-              colour: colorPalette.getColor(data_view.rows[dv][role_map['name']] as string).value
+              colour: colorPalette.getColor(data_view.rows[dv][role_map['name']] as string).value,
+              year_label: data_view.rows[dv][role_map['year_label']].toString() as string,
+              month_label: data_view.rows[dv][role_map['month_label']] as string
           }
           data.push(bar_point);
         }
         data.forEach(d => {
             d.lastValue = +d.lastValue,
             d.value = isNaN(d.value) ? 0 : parseFloat(d.value),
-            d.year = parseFloat(d.year)/*,
-            d.colour = d3.hsl(Math.random() * 360, 0.75, 0.75)*/
+            d.year = parseFloat(d.year)
         });
-        //console.log(data);
+
         let first_month: number = d3.min(data, d => d.year);
         let last_month: number = d3.max(data, d => d.year);
         let current_year: number = first_month;
@@ -215,7 +217,7 @@ export class Visual implements IVisual {
           .attr('class', 'valueLabel')
           .attr('x', d => x(d.value) + 5)
           .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1)
-            .text(d => (d.value * 100).toFixed(0) + "%");
+            .text(d => d3.format(this.settings.mainOptions.valueFormat)(d.value));
 
         let yearText = svg.append('text')
             .attr('class', 'yearText')
@@ -225,7 +227,7 @@ export class Visual implements IVisual {
             .attr('x', width - margin.right)
           .attr('y', height - 35)
           .style('text-anchor', 'end')
-          .html(String(current_year.toFixed(0)))
+            .html(yearSlice[0].year_label)
           .call(Visual.halo, 10);
 
         let monthText = svg.append('text')
@@ -236,23 +238,23 @@ export class Visual implements IVisual {
             .attr('x', width)
             .attr('y', height - 15)
             .style('text-anchor', 'end')
-            .html('January');
+            .html(yearSlice[0].month_label);
 
         let pauseButton = svg.append('text')
             .attr('x', width)
             .attr('y', 15)
             .style('text-anchor', 'end')
-            .html('Pause')
+            .html(function () { if (showControls == true) return 'Pause'; else return ''; })
             .on('click', function (button) {
                 if (ticker_status == 1) {
                     ticker.stop();
                     ticker_status = 0;
-                    pauseButton.html('Play');
+                    pauseButton.html(function () { if (showControls == true) return 'Play'; else return ''; });
                 } else {
                     current_year = first_month;
                     ticker = d3.interval(timer_function, tickDuration);
                     ticker_status = 1;
-                    pauseButton.html('Pause');
+                    pauseButton.html(function () { if (showControls == true) return 'Pause'; else return ''; });
                 }
             });
 
@@ -266,15 +268,12 @@ export class Visual implements IVisual {
 
            yearSlice.forEach((d, i) => d.rank = i);
 
-           console.log('IntervalYear: ' + current_year, yearSlice);
-
            x.domain([0, d3.max(yearSlice, d => d.value)]);
 
            svg.select('.xAxis')
              .transition()
              .duration(tickDuration)
              .ease(d3.easeLinear)
-             //.call(xAxis());
 
            let bars = svg.selectAll('.bar').data(yearSlice, d => d['name']);
 
@@ -283,8 +282,7 @@ export class Visual implements IVisual {
              .append('rect')
              .attr('class', d => `bar ${d['name'].replace(/\s/g, '_')}`)
              .attr('x', x(0) + 1)
-             //.attr('width', d => x(d['value']) - x(0) - 1)
-               .attr('width', function (d) {
+             .attr('width', function (d) {
                    return x(d['value']) - x(0) - 1;
                })
              .attr('y', d => y(top_n + 1) + 5)
@@ -302,107 +300,97 @@ export class Visual implements IVisual {
               .attr('width', d => x(d.value) - x(0) - 1)
               .attr('y', d => y(d.rank) + 5);
 
-                bars
-                    .exit()
-                    .transition()
-                    .duration(tickDuration)
-                    .ease(d3.easeLinear)
-                    .attr('width', d => x(d['value']) - x(0) - 1)
-                    .attr('y', d => y(top_n + 1) + 5)
-                    .remove();
+            bars
+              .exit()
+              .transition()
+              .duration(tickDuration)
+              .ease(d3.easeLinear)
+              .attr('width', d => x(d['value']) - x(0) - 1)
+              .attr('y', d => y(top_n + 1) + 5)
+              .remove();
 
-                let labels = svg.selectAll('.label')
-                    .data(yearSlice, d => d['name']);
+            let labels = svg.selectAll('.label')
+              .data(yearSlice, d => d['name']);
 
-                labels
-                    .enter()
-                    .append('text')
-                    .attr('class', 'label')
-                    .attr('x', d => x(d['value']) - 8)
-                    .attr('y', d => y(top_n + 1) + 5 + ((y(1) - y(0)) / 2))
-                    .style('text-anchor', 'end')
-                    .style('fill', this.settings.mainOptions.barLabelColor)
-                    .html(d => d['name'])
-                    .transition()
-                    .duration(tickDuration)
-                    .ease(d3.easeLinear)
-                    .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
+            labels
+              .enter()
+              .append('text')
+              .attr('class', 'label')
+              .attr('x', d => x(d['value']) - 8)
+              .attr('y', d => y(top_n + 1) + 5 + ((y(1) - y(0)) / 2))
+              .style('text-anchor', 'end')
+              .style('fill', this.settings.mainOptions.barLabelColor)
+              .html(d => d['name'])
+              .transition()
+              .duration(tickDuration)
+              .ease(d3.easeLinear)
+              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
 
+            labels
+              .transition()
+              .duration(tickDuration)
+              .ease(d3.easeLinear)
+              .attr('x', d => x(d['value']) - 8)
+              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
 
-                labels
-                    .transition()
-                    .duration(tickDuration)
-                    .ease(d3.easeLinear)
-                    .attr('x', d => x(d['value']) - 8)
-                    .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
+            labels
+              .exit()
+              .transition()
+              .duration(tickDuration)
+              .ease(d3.easeLinear)
+              .attr('x', d => x(d['value']) - 8)
+              .attr('y', d => y(top_n + 1) + 5)
+              .remove();
 
-                labels
-                    .exit()
-                    .transition()
-                    .duration(tickDuration)
-                    .ease(d3.easeLinear)
-                    .attr('x', d => x(d['value']) - 8)
-                    .attr('y', d => y(top_n + 1) + 5)
-                    .remove();
+            let valueLabels = svg.selectAll('.valueLabel').data(yearSlice, d => d['name']);
 
+            valueLabels
+              .enter()
+              .append('text')
+              .attr('class', 'valueLabel')
+              .attr('x', d => x(d['value']) + 5)
+              .attr('y', d => y(top_n + 1) + 5)
+              .text(d => d3.format(',.1f')(d['lastValue']*100))
+              .transition()
+              .duration(tickDuration)
+              .ease(d3.easeLinear)
+              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
 
+            valueLabels
+              .transition()
+              .duration(tickDuration)
+              .ease(d3.easeLinear)
+              .attr('x', d => x(d['value']) + 5)
+              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1)
+              .tween("text", function (d) {
+                 let i = d3.interpolateNumber(d['lastValue'], d['value']);
+                 return function (t) {
+                    this.textContent = d3.format(valueFormat)(i(t));
+                 };
+              });
 
-                let valueLabels = svg.selectAll('.valueLabel').data(yearSlice, d => d['name']);
+            valueLabels
+              .exit()
+              .transition()
+              .duration(tickDuration)
+              .ease(d3.easeLinear)
+              .attr('x', d => x(d['value']) + 5)
+              .attr('y', d => y(top_n + 1) + 5)
+              .remove();
 
-                valueLabels
-                    .enter()
-                    .append('text')
-                    .attr('class', 'valueLabel')
-                    .attr('x', d => x(d['value']) + 5)
-                    .attr('y', d => y(top_n + 1) + 5)
-                    .text(d => d3.format(',.1f')(d['lastValue']*100))
-                    .transition()
-                    .duration(tickDuration)
-                    .ease(d3.easeLinear)
-                    .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
+            yearText.html(yearSlice[0].year_label);
+            monthText.html(yearSlice[0].month_label);
 
-                valueLabels
-                    .transition()
-                    .duration(tickDuration)
-                    .ease(d3.easeLinear)
-                    .attr('x', d => x(d['value']) + 5)
-                    .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1)
-                    .tween("text", function (d) {
-                        let i = d3.interpolateRound(d['lastValue']*100, d['value']*100);
-                        return function (t) {
-                            this.textContent = i(t).toFixed(0) + "%";
-                        };
-                    });
-
-
-                valueLabels
-                    .exit()
-                    .transition()
-                    .duration(tickDuration)
-                    .ease(d3.easeLinear)
-                    .attr('x', d => x(d['value']) + 5)
-                    .attr('y', d => y(top_n + 1) + 5)
-                    .remove();
-
-                yearText.html(current_year.toFixed(0));
-            let year_decimal: number = current_year - Math.round(current_year);
-            monthText.html(months_array[Math.round(year_decimal * 100)]);
-
-                current_year = current_year + .01;
+            current_year = current_year + .01;
             if (current_year > last_month) {
                 ticker.stop();
                 ticker_status = 0;
-                pauseButton.html('Play');
+                pauseButton.html(function () { if (showControls == true) return 'Play'; else return ''; });
             }
-                year_str = d3.format('.1f')((+current_year) + 0.01);
-            };
+        };
 
         let ticker = d3.interval(timer_function, tickDuration);
  
-
-
-
-
 }
 
     private static halo(text, strokeWidth) {

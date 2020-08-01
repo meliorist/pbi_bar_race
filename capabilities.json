@@ -6,14 +6,39 @@
       "kind": "GroupingOrMeasure"
     },
     {
-      "displayName": "Values",
-      "name": "value",
+      "displayName": "Labels",
+      "name": "labels",
+      "kind": "GroupingOrMeasure"
+    },
+    {
+      "displayName": "Period Values",
+      "name": "period_values",
+      "kind": "GroupingOrMeasure"
+    },
+    {
+      "displayName": "Currrent Values",
+      "name": "current_values",
+      "kind": "GroupingOrMeasure"
+    },
+    {
+      "displayName": "Prior Values",
+      "name": "prior_values",
+      "kind": "GroupingOrMeasure"
+    },
+    {
+      "displayName": "Period Labels",
+      "name": "period_labels",
+      "kind": "GroupingOrMeasure"
+    },
+    {
+      "displayName": "Period Sub Labels",
+      "name": "period_sub_labels",
       "kind": "GroupingOrMeasure"
     }
   ],
   "objects": {
     "mainOptions": {
-      "displayName": "Visual Options",
+      "displayName": "Bar Race Settings",
       "properties": {
         "barLabelColor": {
           "displayName": "Bar Label Color",
@@ -72,6 +97,12 @@
           "type": {
             "text": true
           }
+        },
+        "showControls": {
+          "displayName": "Show Play Controls",
+          "type": {
+            "bool": true
+          }
         }
       }
     }
@@ -84,17 +115,41 @@
             {
               "for": {
                 "in": "column"
-              },
-              "dataReductionAlgorithm": {
-                "window": {"count": 6000}
               }
             },
             {
               "for": {
-                "in": "value"
-              },
-              "dataReductionAlgorithm": {
-                "window": { "count": 6000 }
+                "in": "labels"
+              }
+            },
+            {
+              "for": {
+                "in": "period_values"
+              }
+            },
+            {
+              "for": {
+                "in": "current_values"
+              }
+            },
+            {
+              "for": {
+                "in": "prior_values"
+              }
+            },
+            {
+              "for": {
+                "in": "rank"
+              }
+            },
+            {
+              "for": {
+                "in": "period_labels"
+              }
+            },
+            {
+              "for": {
+                "in": "period_sub_labels"
               }
             }
           ]

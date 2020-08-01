@@ -34,21 +34,23 @@ export class VisualSettings extends DataViewObjectsParser {
 }
 
 export class visualOptions {
-     // Default color
-      public barLabelColor: string = "#cdcdcd";
-     // Show all
+    // Color of the labels inside the bars
+    public barLabelColor: string = "#cdcdcd";
+    // Color for the text of the period labels and sub labels
     public textColor: string = "#cdcdcd";
-     // Fill
+    // Font used for all text
     public fontFamily: string = "Verdana";
-     // Color saturation
-      public yearSize: number = 18;
-     // Text Size
-      public monthSize: number = 12;
-    // Text Size
+    // Font size of the period label (in pt)
+    public yearSize: number = 18;
+    // Font size of the period sub label (in pt)
+    public monthSize: number = 12;
+    // Number of bars to show (top n by rank)
     public barsToShow: number = 12;
-    // Text Size
+    // Interval timing (in milliseconds)
     public intervalTiming: number = 2000;
-    // Text Size
+    // Format for the bar labels (d3 format string)
     public valueFormat: string = '';
+    // Show Animation play controls
+    public showControls: boolean = false;
 }
 

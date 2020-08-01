@@ -1,0 +1,17 @@
+{
+    "version": "1.0.0",
+    "author": {"name":"Stephan Fopeano","email":"stephan@meliorist.com"},
+    "resources": [
+        {
+            "resourceId": "rId0",
+            "sourceType": 5,
+            "file": "resources/barraceDB8728D9BD7B48618F2369A4ACDC23B6.pbiviz.json"
+        }
+    ],
+    "visual": {"name":"bdbd_barrace","displayName":"BigData BigDisplay Bar Race","guid":"barraceDB8728D9BD7B48618F2369A4ACDC23B6","visualClassName":"Visual","version":"1.0.0","description":"Implementation of the Bar Race animation for a big display","supportUrl":"https://www.meliorist.com","gitHubUrl":""},
+    "metadata": {
+        "pbivizjson": {
+            "resourceId": "rId0"
+        }
+    }  
+}

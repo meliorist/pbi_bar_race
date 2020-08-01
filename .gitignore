@@ -1,5 +1,6 @@
-﻿*.bak
+*.bak
 /.tmp
 /.vs
-/.vscode
 /node_modules
+webpack.statistics.dev.html
+webpack.statistics.prod.html
