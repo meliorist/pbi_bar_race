@@ -52,5 +52,7 @@ export class visualOptions {
     public valueFormat: string = '';
     // Show Animation play controls
     public showControls: boolean = false;
+    // Loop the animation forever
+    public repeatLoop: boolean = false;
 }
 

@@ -14,7 +14,7 @@
     "name": "Stephan Fopeano",
     "email": "stephan@meliorist.com"
   },
-  "assets": { "icon": "assets/icon.png" },
+  "assets": { "icon": "assets/bar-race-icon.png" },
   "externalJS": [],
   "style": "style/visual.less",
   "capabilities": "capabilities.json",

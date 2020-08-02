@@ -384,8 +384,13 @@ export class Visual implements IVisual {
             current_year = current_year + .01;
             if (current_year > last_month) {
                 ticker.stop();
-                ticker_status = 0;
-                pauseButton.html(function () { if (showControls == true) return 'Play'; else return ''; });
+                if (this.settings.mainOptions.repeatLoop == true) {
+                    current_year = first_month;
+                    ticker = d3.interval(timer_function, tickDuration);
+                } else {
+                    ticker_status = 0;
+                    pauseButton.html(function () { if (showControls == true) return 'Play'; else return ''; });
+                }
             }
         };
 

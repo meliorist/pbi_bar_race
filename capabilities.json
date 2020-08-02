@@ -103,6 +103,12 @@
           "type": {
             "bool": true
           }
+        },
+        "repeatLoop": {
+          "displayName": "Loop Animation",
+          "type": {
+            "bool": true
+          }
         }
       }
     }
