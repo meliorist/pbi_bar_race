@@ -6,8 +6,8 @@
     "visualClassName": "Visual",
     "version": "1.0.0",
     "description": "Implementation of the Bar Race animation for a big display",
-    "supportUrl": "https://www.meliorist.com",
-    "gitHubUrl": ""
+    "supportUrl": "https://github.com/meliorist/pbi_bar_race/issues",
+    "gitHubUrl": "https://github.com/meliorist/pbi_bar_race"
   },
   "apiVersion": "2.6.0",
   "author": {
