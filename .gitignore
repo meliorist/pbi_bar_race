@@ -1,4 +1,5 @@
 *.bak
+*.pbiviz
 /.tmp
 /.vs
 /node_modules
