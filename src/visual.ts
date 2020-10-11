@@ -43,7 +43,7 @@ import * as d3 from 'd3';
 //import 'd3-selection-multi';
 
 import { VisualSettings, visualOptions } from "./settings";
-import { hsl } from "d3";
+import { hsl, TimeInterval, Timer } from "d3";
 export class Visual implements IVisual {
     private target: HTMLElement;
     private svg: d3.Selection<SVGElement, {}, HTMLElement, any>;
@@ -52,6 +52,8 @@ export class Visual implements IVisual {
     private host: IVisualHost;
     private container: HTMLElement;
     private windowsLoaded: number;
+    public current_year: number;
+    public ticker: Timer;
     selectionManager: powerbi.extensibility.ISelectionManager;
 
     constructor(options: VisualConstructorOptions) {
@@ -59,17 +61,26 @@ export class Visual implements IVisual {
         this.target = options.element;
         this.host = options.host;
         this.selectionManager = options.host.createSelectionManager();
+        this.ticker = null;
+        this.current_year = 0;
         
         if (document) {
             this.container = document.createElement('div');
             this.container.setAttribute('class', 'main_container');
+            this.svg = d3.select(this.container).append('svg');
             this.target.appendChild(this.container);
-  
         }
     }
 
     public update(options: VisualUpdateOptions) {
         this.settings = Visual.parseSettings(options && options.dataViews && options.dataViews[0]);
+
+        let height = options.viewport.height;
+        let width = options.viewport.width;
+
+        // if there are any tickers (timers) currently running, we need to stop them so that the visual
+        // update works properly when the user changes focus mode, or changes a formatting setting
+        if (this.current_year > 0) this.ticker.stop();
 
         // allows us to use the colors from the selected template
         let colorPalette: ISandboxExtendedColorPalette = this.host.colorPalette;
@@ -92,18 +103,12 @@ export class Visual implements IVisual {
             //console.log('We have all the data we can get (${rowCount} rows over ${this.windowsLoaded} fetches)!');
         }
 
-        let height = options.viewport.height;
-        let width = options.viewport.width;
+        d3.select("svg").selectAll("*").remove();
 
-        let svg = null;
-
-        if (this.container.getElementsByClassName("visual_svg").length == 0) {
-            svg = d3.select(this.container).append("svg")
-                .attr("id", "visual_svg")
+        this.svg.attr("id", "visual_svg")
                 .attr("class", "visual_svg")
                 .attr("width", width)
                 .attr("height", height);
-        } else svg = d3.select("#visual_svg");
 
         let tickDuration = this.settings.mainOptions.intervalTiming;
 
@@ -160,7 +165,7 @@ export class Visual implements IVisual {
             d3.select("#loading_text").remove();
         }
 
-        svg.on('contextmenu', () => {
+        this.svg.on('contextmenu', () => {
             const mouseEvent: MouseEvent = d3.event as MouseEvent;
             let dataPoint: any = d3.select("svg").datum();
             this.selectionManager.showContextMenu(dataPoint ? dataPoint.selectionId : {}, {
@@ -190,9 +195,9 @@ export class Visual implements IVisual {
         });
         let first_month: number = d3.min(data, d => d.year);
         let last_month: number = d3.max(data, d => d.year);
-        let current_year: number = first_month;
+        this.current_year = first_month;
 
-        let yearSlice = data.filter(d => d.year == current_year && !isNaN(d.value))
+        let yearSlice = data.filter(d => d.year == this.current_year && !isNaN(d.value))
             .sort((a, b) => b.value - a.value)
             .slice(0, top_n);
 
@@ -208,18 +213,20 @@ export class Visual implements IVisual {
 
         let xAxis = d3.axisTop(x)
             .scale(x)
-            .ticks(width > 500 ? 5 : 2)
+            .ticks(5)
             .tickSize(-(height - margin.top - margin.bottom))
             .tickFormat(d => d3.format(',')(d));
 
-        svg.append('g')
-            .attr('class', 'axis xAxis')
-            .attr('transform', `translate(0, ${margin.top})`)
-            .call(xAxis)
-            .selectAll('.tick line')
-            .classed('origin', d => d == 0);
+        if (this.container.getElementsByClassName("axis xAxis").length == 0) {
+            this.svg.append('g')
+                .attr('class', 'axis xAxis')
+                .attr('transform', `translate(0, ${margin.top})`)
+                .call(xAxis)
+                .selectAll('.tick line')
+                .classed('origin', d => d == 0);
+        }
 
-        svg.selectAll('rect.bar')
+        this.svg.selectAll('rect.bar')
             .data(yearSlice, d => d['name'])
             .enter()
             .append('rect')
@@ -236,7 +243,7 @@ export class Visual implements IVisual {
           .attr('height', y(1) - y(0) - barPadding)
           .style('fill', d => d.colour);
 
-        svg.selectAll('text.label')
+        this.svg.selectAll('text.label')
           .data(yearSlice, d => d['name'])
           .enter()
           .append('text')
@@ -247,7 +254,7 @@ export class Visual implements IVisual {
           .style('text-anchor', 'end')
           .html(d => d.name);
 
-        svg.selectAll('text.valueLabel')
+        this.svg.selectAll('text.valueLabel')
           .data(yearSlice, d => d['name'])
           .enter()
           .append('text')
@@ -256,18 +263,18 @@ export class Visual implements IVisual {
           .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1)
             .text(d => d3.format(this.settings.mainOptions.valueFormat)(d.value));
 
-        let yearText = svg.append('text')
+        let yearText = this.svg.append('text')
             .attr('class', 'yearText')
             .style('font-size', this.settings.mainOptions.yearSize + "pt")
             .style('font-family', this.settings.mainOptions.fontFamily)
             .style('fill', this.settings.mainOptions.textColor)
             .attr('x', width - margin.right)
-          .attr('y', height - 35)
+            .attr('y', height - (this.settings.mainOptions.monthSize * 1.33) - 15)
           .style('text-anchor', 'end')
             .html(yearSlice[0].year_label)
           .call(Visual.halo, 10);
 
-        let monthText = svg.append('text')
+        let monthText = this.svg.append('text')
             .attr('class', 'monthText')
             .style('font-size', this.settings.mainOptions.monthSize + "pt")
             .style('font-family', this.settings.mainOptions.fontFamily)
@@ -277,67 +284,47 @@ export class Visual implements IVisual {
             .style('text-anchor', 'end')
             .html(yearSlice[0].month_label);
 
-        let pauseButton = svg.append('text')
+        this.current_year = this.current_year + .01;
+
+        let pauseButton = this.svg.append('text')
             .attr('x', width)
             .attr('y', 15)
             .style('text-anchor', 'end')
             .html(function () { if (showControls == true) return 'Pause'; else return ''; })
-            .on('click', function (button) {
+            .on('click', () => {
                 if (ticker_status == 1) {
-                    ticker.stop();
+                    this.ticker.stop();
                     ticker_status = 0;
                     pauseButton.html(function () { if (showControls == true) return 'Play'; else return ''; });
                 } else {
-                    current_year = first_month;
-                    ticker = d3.interval(timer_function, tickDuration);
+                    this.ticker = d3.interval(timer_function, tickDuration);
                     ticker_status = 1;
                     pauseButton.html(function () { if (showControls == true) return 'Pause'; else return ''; });
                 }
             });
 
-        current_year = current_year + .01;
-
         let timer_function = e => {
             ticker_status = 1;
-            yearSlice = data.filter(d => d.year == current_year && !isNaN(d.value))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, top_n);
+            yearSlice = data.filter(d => d.year == this.current_year && !isNaN(d.value))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, top_n);
 
-           yearSlice.forEach((d, i) => d.rank = i);
+            yearSlice.forEach((d, i) => d.rank = i);
 
-           x.domain([0, d3.max(yearSlice, d => d.value)]);
+            x.domain([0, d3.max(yearSlice, d => d.value)]);
 
-           svg.select('.xAxis')
-             .transition()
-             .duration(tickDuration)
-             .ease(d3.easeLinear)
+            this.svg.select('.xAxis')
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
 
-           let bars = svg.selectAll('.bar').data(yearSlice, d => d['name']);
-
-           bars
-             .enter()
-             .append('rect')
-             .attr('class', d => `bar ${d['name'].replace(/\s/g, '_')}`)
-             .attr('x', x(0) + 1)
-             .attr('width', function (d) {
-                 if ((x(d['value']) - x(0) - 1) < 0) {
-                     return 0;
-                 } else {
-                     return (x(d['value']) - x(0) - 1);
-                 }
-             })
-             .attr('y', d => y(top_n + 1) + 5)
-             .attr('height', y(1) - y(0) - barPadding)
-             .style('fill', d => d.colour)
-             .transition()
-             .duration(tickDuration)
-             .ease(d3.easeLinear)
-             .attr('y', d => y(d['rank']) + 5);
+            let bars = this.svg.selectAll('.bar').data(yearSlice, d => d['name']);
 
             bars
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
+                .enter()
+                .append('rect')
+                .attr('class', d => `bar ${d['name'].replace(/\s/g, '_')}`)
+                .attr('x', x(0) + 1)
                 .attr('width', function (d) {
                     if ((x(d['value']) - x(0) - 1) < 0) {
                         return 0;
@@ -345,13 +332,18 @@ export class Visual implements IVisual {
                         return (x(d['value']) - x(0) - 1);
                     }
                 })
-              .attr('y', d => y(d.rank) + 5);
+                .attr('y', d => y(top_n + 1) + 5)
+                .attr('height', y(1) - y(0) - barPadding)
+                .style('fill', d => d.colour)
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('y', d => y(d['rank']) + 5);
 
             bars
-              .exit()
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
                 .attr('width', function (d) {
                     if ((x(d['value']) - x(0) - 1) < 0) {
                         return 0;
@@ -359,87 +351,101 @@ export class Visual implements IVisual {
                         return (x(d['value']) - x(0) - 1);
                     }
                 })
-              .attr('y', d => y(top_n + 1) + 5)
-              .remove();
+                .attr('y', d => y(d.rank) + 5);
 
-            let labels = svg.selectAll('.label')
-              .data(yearSlice, d => d['name']);
+            bars
+                .exit()
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('width', function (d) {
+                    if ((x(d['value']) - x(0) - 1) < 0) {
+                        return 0;
+                    } else {
+                        return (x(d['value']) - x(0) - 1);
+                    }
+                })
+                .attr('y', d => y(top_n + 1) + 5)
+                .remove();
 
-            labels
-              .enter()
-              .append('text')
-              .attr('class', 'label')
-              .attr('x', d => x(d['value']) - 8)
-              .attr('y', d => y(top_n + 1) + 5 + ((y(1) - y(0)) / 2))
-              .style('text-anchor', 'end')
-              .style('fill', this.settings.mainOptions.barLabelColor)
-              .html(d => d['name'])
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
-              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
-
-            labels
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
-              .attr('x', d => x(d['value']) - 8)
-              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
+            let labels = this.svg.selectAll('.label')
+                .data(yearSlice, d => d['name']);
 
             labels
-              .exit()
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
-              .attr('x', d => x(d['value']) - 8)
-              .attr('y', d => y(top_n + 1) + 5)
-              .remove();
+                .enter()
+                .append('text')
+                .attr('class', 'label')
+                .attr('x', d => x(d['value']) - 8)
+                .attr('y', d => y(top_n + 1) + 5 + ((y(1) - y(0)) / 2))
+                .style('text-anchor', 'end')
+                .style('fill', this.settings.mainOptions.barLabelColor)
+                .html(d => d['name'])
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
 
-            let valueLabels = svg.selectAll('.valueLabel').data(yearSlice, d => d['name']);
+            labels
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('x', d => x(d['value']) - 8)
+                .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
 
-            valueLabels
-              .enter()
-              .append('text')
-              .attr('class', 'valueLabel')
-              .attr('x', d => x(d['value']) + 5)
-              .attr('y', d => y(top_n + 1) + 5)
-              .text(d => d3.format(',.1f')(d['lastValue']*100))
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
-              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
+            labels
+                .exit()
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('x', d => x(d['value']) - 8)
+                .attr('y', d => y(top_n + 1) + 5)
+                .remove();
 
-            valueLabels
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
-              .attr('x', d => x(d['value']) + 5)
-              .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1)
-              .tween("text", function (d) {
-                 let i = d3.interpolateNumber(d['lastValue'], d['value']);
-                 return function (t) {
-                    this.textContent = d3.format(valueFormat)(i(t));
-                 };
-              });
+            let valueLabels = this.svg.selectAll('.valueLabel').data(yearSlice, d => d['name']);
 
             valueLabels
-              .exit()
-              .transition()
-              .duration(tickDuration)
-              .ease(d3.easeLinear)
-              .attr('x', d => x(d['value']) + 5)
-              .attr('y', d => y(top_n + 1) + 5)
-              .remove();
+                .enter()
+                .append('text')
+                .attr('class', 'valueLabel')
+                .attr('x', d => x(d['value']) + 5)
+                .attr('y', d => y(top_n + 1) + 5)
+                .text(d => d3.format(',.1f')(d['lastValue'] * 100))
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1);
+
+            valueLabels
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('x', d => x(d['value']) + 5)
+                .attr('y', d => y(d['rank']) + 5 + ((y(1) - y(0)) / 2) + 1)
+                .tween("text", function (d) {
+                    let i = d3.interpolateNumber(d['lastValue'], d['value']);
+                    return function (t) {
+                        this.textContent = d3.format(valueFormat)(i(t));
+                    };
+                });
+
+            valueLabels
+                .exit()
+                .transition()
+                .duration(tickDuration)
+                .ease(d3.easeLinear)
+                .attr('x', d => x(d['value']) + 5)
+                .attr('y', d => y(top_n + 1) + 5)
+                .remove();
 
             yearText.html(yearSlice[0].year_label);
             monthText.html(yearSlice[0].month_label);
 
-            current_year = current_year + .01;
-            if (current_year > last_month) {
-                ticker.stop();
+            this.current_year = this.current_year + .01;
+            if (this.current_year > last_month) {
+                this.ticker.stop();
                 if (this.settings.mainOptions.repeatLoop == true) {
-                    current_year = first_month;
-                    ticker = d3.interval(timer_function, tickDuration);
+                    this.current_year = first_month;
+                    this.ticker = d3.interval(timer_function, tickDuration);
                 } else {
                     ticker_status = 0;
                     pauseButton.html(function () { if (showControls == true) return 'Play'; else return ''; });
@@ -447,9 +453,9 @@ export class Visual implements IVisual {
             }
         };
 
-        let ticker = d3.interval(timer_function, tickDuration);
+        this.ticker = d3.interval(timer_function, tickDuration);
  
-}
+    }
 
     private static halo(text, strokeWidth) {
         text.select(function () { return this.parentNode.insertBefore(this.cloneNode(true), this); })

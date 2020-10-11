@@ -4,7 +4,7 @@
     "displayName": "BigData BigDisplay Bar Race",
     "guid": "barraceDB8728D9BD7B48618F2369A4ACDC23B6",
     "visualClassName": "Visual",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Implementation of the Bar Race animation for a big display",
     "supportUrl": "https://github.com/meliorist/pbi_bar_race/issues",
     "gitHubUrl": "https://github.com/meliorist/pbi_bar_race"
